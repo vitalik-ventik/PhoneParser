@@ -149,33 +149,27 @@ class Parser(threading.Thread):
             name = ''.join([c for c in name if c.upper() in allowed_letters])
             if phone in Parser.source_excel.keys():
                 return False
-            try:
-                if phone in Parser.phones.keys():
-                    if name == '':
-                        return False
-                    try:
-                        names = Parser.phones[phone]
-                    except EOFError:
-                        names = ''
-                    if name in (names.split(',')):
-                        return False
-                    if names != '':
-                        names += ','
-                    names += name
+            if phone in Parser.phones.keys():
+                if name == '':
+                    return False
+                try:
+                    names = Parser.phones[phone]
+                except (EOFError, _pickle.UnpicklingError, KeyError):
+                    names = ''
                     Parser.phones[phone] = names
-                    result = False
-                else:
-                    Parser.phones[phone] = name
-                    result = True
-                Parser.phones.sync()
-            except (_pickle.UnpicklingError, KeyError):
-                Parser.recreate_phones_shelves()
-                print('phones recreated')
-                need_resave_phone = True
+                if name in (names.split(',')):
+                    return False
+                if names != '':
+                    names += ','
+                names += name
+                Parser.phones[phone] = names
+                result = False
+            else:
+                Parser.phones[phone] = name
+                result = True
+            Parser.phones.sync()
         finally:
             Parser.lock.release()
-        if need_resave_phone:
-            result = Parser.save_phone_name(phone, name)
         return result
 
     @staticmethod
@@ -203,10 +197,12 @@ class Parser(threading.Thread):
     @staticmethod
     def get_current_date(current_url):
         current_date = Parser.limit_date_for_search
-        print(current_date)
         if current_url in Parser.cfg.keys():
-            url_value = Parser.cfg[current_url][0]
-            print(url_value)
+            try:
+                url_value = Parser.cfg[current_url][0]
+            except (EOFError, _pickle.UnpicklingError, KeyError):
+                url_value = ''
+                Parser.cfg[current_url] = ['', current_date]
             if isinstance(url_value, int):
                 if url_value != 0:
                     current_date = Parser.cfg[current_url][1]
