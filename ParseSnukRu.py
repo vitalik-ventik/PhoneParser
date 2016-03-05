@@ -49,7 +49,6 @@ class ParserSnukRu(Parser):
     def load_snukru_phones(self):
         self.limit_date = Parser.get_current_date(self.base_url)
         print('Searching phones on ', self.base_url)
-        print('Limit date - ', self.limit_date)
 
         curr_page = Parser.get_current_url(self.base_url)
         if curr_page != '':

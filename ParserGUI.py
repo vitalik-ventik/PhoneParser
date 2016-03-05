@@ -215,31 +215,33 @@ class MainWindow(object):
                 tkinter.messagebox.showerror("Ошибка", "Укажите корректную дату")
                 return
             has_restoring = False
-
-            try:
-                for p in parsers:
-                    if p['checked'].get():
-                        for k, v in Parser.cfg.items():
-                            if isinstance(v, int):
-                                if k.startswith(p['parser'].base_url) and v[0] != 0:
-                                    has_restoring = True
-                            else:
-                                if k.startswith(p['parser'].base_url) and v[0] != '':
-                                    has_restoring = True
-            except (_pickle.UnpicklingError, KeyError):
-                tkinter.messagebox.showwarning("Внимание",
-                                               "Хранилище с данными о предыдущем поиске повреждено и будет пересоздано")
-                has_restoring = False
-                Parser.recreate_cfg_shelves()
+            for p in parsers:
+                if p['checked'].get():
+                    for k in Parser.cfg.keys():
+                        try:
+                            v = Parser.cfg[k]
+                        except (EOFError, _pickle.UnpicklingError, KeyError):
+                            v = ['']
+                            Parser.cfg[k] = v
+                        if isinstance(v[0], int):
+                            if k.startswith(p['parser'].base_url) and v[0] != 0:
+                                has_restoring = True
+                        else:
+                            if k.startswith(p['parser'].base_url) and v[0] != '':
+                                has_restoring = True
             if has_restoring:
                 if not tkinter.messagebox.askyesno('Внимание',
-                                                   ('Предыдущий сеанс поиска был прерван. Возобновить поиск?'
+                                                   ('Предыдущий сеанс поиска был прерван. Возобновить поиск? '
                                                     '(Yes - возобновить, No - начать сначала)')):
                     for p in parsers:
                         if p['checked'].get():
                             for k, v in Parser.cfg.items():
-                                if k.startswith(p['parser'].base_url) and v[0] != '':
-                                    Parser.cfg[k] = ['', v[1]]
+                                if isinstance(v[0], int):
+                                    if k.startswith(p['parser'].base_url) and v[0] != 0:
+                                        Parser.cfg[k] = [0, v[1]]
+                                else:
+                                    if k.startswith(p['parser'].base_url) and v[0] != '':
+                                        Parser.cfg[k] = ['', v[1]]
 
             self.running = True
             self.btn_start.configure(text='Отмена')
