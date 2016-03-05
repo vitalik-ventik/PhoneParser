@@ -1,10 +1,16 @@
 import datetime
 import threading
 import shelve
+import os
+import _pickle
+import time
+import socket
 
 start_search_msg = 'Поиск..'
 cancel_search_msg = 'Поиск отменен'
 finish_search_msg = 'Поиск окончен'
+socket.setdefaulttimeout(5)
+
 
 def curr_date():
     """
@@ -21,6 +27,7 @@ class Parser(threading.Thread):
     phones = None
     root = None
     source_excel = dict()
+    data_dir = os.path.dirname(os.path.abspath(__file__)) +'\data'
 
     def __init__(self, base_url):
         threading.Thread.__init__(self)
@@ -58,6 +65,10 @@ class Parser(threading.Thread):
     def cancel(self):
         self.is_canceled = True
 
+    def process_exception(self, err):
+        print(self.base_url + ' - ' + 'HTTP Error:', err)
+        time.sleep(5)
+
     def notify(self):
         Parser.lock.acquire()
         if Parser.root is not None:
@@ -69,8 +80,28 @@ class Parser(threading.Thread):
 
     @staticmethod
     def init_shelves():
-        Parser.cfg = shelve.open('data\sessions.db')
-        Parser.phones = shelve.open('data\phones.db')
+        if not os.path.exists(Parser.data_dir):
+            os.makedirs(Parser.data_dir)
+        Parser.cfg = shelve.open(Parser.data_dir+'\sessions.db')
+        Parser.phones = shelve.open(Parser.data_dir+'\phones.db')
+
+    @staticmethod
+    def delete_files_starting_with(dir, start_str):
+        for f in os.listdir(dir):
+            if f.startswith(start_str):
+                os.remove(os.path.join(dir, f))
+
+    @staticmethod
+    def recreate_cfg_shelves():
+        Parser.cfg.close()
+        Parser.delete_files_starting_with(Parser.data_dir, 'sessions.db')
+        Parser.cfg = shelve.open(Parser.data_dir+'\sessions.db')
+
+    @staticmethod
+    def recreate_phones_shelves():
+        Parser.phones.close()
+        Parser.delete_files_starting_with(Parser.data_dir, 'phones.db')
+        Parser.phones = shelve.open(Parser.data_dir+'\phones.db')
 
     @staticmethod
     def close_shelves():
@@ -107,6 +138,7 @@ class Parser(threading.Thread):
         :param name: Name
         :return: None
         """
+        need_resave_phone = False
         Parser.lock.acquire()
         try:
             if not Parser.check_phone(phone):
@@ -117,21 +149,33 @@ class Parser(threading.Thread):
             name = ''.join([c for c in name if c.upper() in allowed_letters])
             if phone in Parser.source_excel.keys():
                 return False
-            if phone in Parser.phones.keys():
-                if name == '':
-                    return False
-                if name in (Parser.phones[phone].split(',')):
-                    return False
-                if Parser.phones[phone] != '':
-                    Parser.phones[phone] += ','
-                Parser.phones[phone] += name
-                result = False
-            else:
-                Parser.phones[phone] = name
-                result = True
-            Parser.phones.sync()
+            try:
+                if phone in Parser.phones.keys():
+                    if name == '':
+                        return False
+                    try:
+                        names = Parser.phones[phone]
+                    except EOFError:
+                        names = ''
+                    if name in (names.split(',')):
+                        return False
+                    if names != '':
+                        names += ','
+                    names += name
+                    Parser.phones[phone] = names
+                    result = False
+                else:
+                    Parser.phones[phone] = name
+                    result = True
+                Parser.phones.sync()
+            except (_pickle.UnpicklingError, KeyError):
+                Parser.recreate_phones_shelves()
+                print('phones recreated')
+                need_resave_phone = True
         finally:
             Parser.lock.release()
+        if need_resave_phone:
+            result = Parser.save_phone_name(phone, name)
         return result
 
     @staticmethod
@@ -159,7 +203,14 @@ class Parser(threading.Thread):
     @staticmethod
     def get_current_date(current_url):
         current_date = Parser.limit_date_for_search
+        print(current_date)
         if current_url in Parser.cfg.keys():
-            if Parser.cfg[current_url] != '':
-                current_date = Parser.cfg[current_url][1]
+            url_value = Parser.cfg[current_url][0]
+            print(url_value)
+            if isinstance(url_value, int):
+                if url_value != 0:
+                    current_date = Parser.cfg[current_url][1]
+            else:
+                if url_value != '':
+                    current_date = Parser.cfg[current_url][1]
         return current_date

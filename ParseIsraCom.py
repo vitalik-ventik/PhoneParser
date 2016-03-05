@@ -4,6 +4,7 @@ import re
 from ParseCommon import curr_date
 from ParseCommon import Parser
 from ParseCommon import start_search_msg, finish_search_msg, cancel_search_msg
+import socket
 
 import datetime
 
@@ -60,6 +61,7 @@ class ParserIsraCom(Parser):
     def parse_url(self, url):
         Parser.save_current_url(self.base_url, url, self.limit_date)
         print('Searching phones on', url)
+        print('Limit date - ', self.limit_date)
         html_src = urllib.request.urlopen(url).read()
         soup = BeautifulSoup(html_src, 'html.parser')
         if self.parse_soup_reg(soup):
@@ -79,12 +81,8 @@ class ParserIsraCom(Parser):
                 break
             try:
                 url = self.parse_url(url)
-            except urllib.request.URLError as err:
-                print('URL Error: ', err)
-                self.inc_error_count()
-                continue
-            except urllib.request.HTTPError as err:
-                print('HTTP Error: ', err)
+            except (urllib.request.URLError, urllib.request.HTTPError, socket.timeout) as err:
+                self.process_exception(err)
                 self.inc_error_count()
                 continue
             self.inc_page_count()

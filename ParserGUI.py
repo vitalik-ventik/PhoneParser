@@ -7,11 +7,12 @@ import os
 from openpyxl import load_workbook
 import xlrd
 import xlwt
+import _pickle
 
 from DateUtils import DateEntry
 from DateUtils import CalendarDialog
 import datetime
-import ParseCommon
+from ParseCommon import Parser, curr_date, start_search_msg, cancel_search_msg, finish_search_msg
 import ParseOrbita
 import ParseZahav
 import ParseSnukRu
@@ -25,7 +26,7 @@ class MainWindow(object):
 
     def __init__(self):
         self.running = False
-        self.start_time = ParseCommon.curr_date()
+        self.start_time = curr_date()
         self.timer = None
         self.controls = list()
         self.source_filename = None
@@ -132,8 +133,12 @@ class MainWindow(object):
         ws.col(0).width = 256 * 11
 
         line = 0
-        for k, v in ParseCommon.Parser.phones.items():
-            if k not in self.source_excel.keys():
+        for k in Parser.phones.keys():
+            if k not in Parser.source_excel.keys():
+                try:
+                    v = Parser.phones[k]
+                except EOFError:
+                    v = ''
                 ws.write(line, 0, int(k), phone_style)
                 ws.write(line, 1, v)
                 line += 1
@@ -142,6 +147,11 @@ class MainWindow(object):
         os.startfile(save_filename, 'open')
 
     def btn_date_command(self):
+        
+        """try:
+            init_date = self.date_entry.get()
+        except ValueError:
+            init_date = None"""
         cd = CalendarDialog.CalendarDialog(master)
         result = cd.result
         self.date_entry.set_date(result)
@@ -152,7 +162,7 @@ class MainWindow(object):
         for row in ws.rows:
             for cell in row:
                 phone_str = str(cell.value).strip().zfill(10)
-                ParseCommon.Parser.source_excel[phone_str] = ParseCommon.Parser.source_excel.get(phone_str, 0) + 1
+                Parser.source_excel[phone_str] = Parser.source_excel.get(phone_str, 0) + 1
                 break
 
     def load_xls(self):
@@ -164,14 +174,14 @@ class MainWindow(object):
                 if isinstance(cell, float):
                     cell = int(cell)
                 phone_str = str(cell).strip().zfill(10)
-                ParseCommon.Parser.source_excel[phone_str] = ParseCommon.Parser.source_excel.get(phone_str, 0) + 1
+                Parser.source_excel[phone_str] = Parser.source_excel.get(phone_str, 0) + 1
                 break
 
     def btn_excel_command(self):
         self.source_filename = askopenfilename(filetypes=(("Excel files", "*.xls;*.xlsx"), ))
         self.excel_sv.set(self.source_filename)
         filename, file_extension = os.path.splitext(self.source_filename)
-        ParseCommon.Parser.source_excel = dict()
+        Parser.source_excel = dict()
         if file_extension == '.xlsx':
             self.load_xlsx()
         else:
@@ -200,30 +210,37 @@ class MainWindow(object):
                 tkinter.messagebox.showerror("Ошибка", "Нет выбранных сайтов")
                 return
             try:
-                ParseCommon.Parser.limit_date_for_search = self.date_entry.get()
+                Parser.limit_date_for_search = self.date_entry.get()
             except ValueError:
                 tkinter.messagebox.showerror("Ошибка", "Укажите корректную дату")
                 return
             has_restoring = False
-            for k, v in ParseCommon.Parser.cfg.items():
-                print(k, v)
-            for p in parsers:
-                if p['checked'].get():
-                    for k, v in ParseCommon.Parser.cfg.items():
-                        print('!', k, v)
-                        if k.startswith(p['parser'].base_url) and v[0] != '':
-                            has_restoring = True
-                            print(k, v[0])
+
+            try:
+                for p in parsers:
+                    if p['checked'].get():
+                        for k, v in Parser.cfg.items():
+                            if isinstance(v, int):
+                                if k.startswith(p['parser'].base_url) and v[0] != 0:
+                                    has_restoring = True
+                            else:
+                                if k.startswith(p['parser'].base_url) and v[0] != '':
+                                    has_restoring = True
+            except (_pickle.UnpicklingError, KeyError):
+                tkinter.messagebox.showwarning("Внимание",
+                                               "Хранилище с данными о предыдущем поиске повреждено и будет пересоздано")
+                has_restoring = False
+                Parser.recreate_cfg_shelves()
             if has_restoring:
                 if not tkinter.messagebox.askyesno('Внимание',
                                                    ('Предыдущий сеанс поиска был прерван. Возобновить поиск?'
                                                     '(Yes - возобновить, No - начать сначала)')):
                     for p in parsers:
                         if p['checked'].get():
-                            for k, v in ParseCommon.Parser.cfg.items():
+                            for k, v in Parser.cfg.items():
                                 if k.startswith(p['parser'].base_url) and v[0] != '':
-                                    ParseCommon.Parser.cfg[k] = ['', v[1]]
-                                print(v)
+                                    Parser.cfg[k] = ['', v[1]]
+
             self.running = True
             self.btn_start.configure(text='Отмена')
             self.btn_save.configure(state=DISABLED)
@@ -256,15 +273,15 @@ def update_parser(i):
         p['status'].set(p['parser'].status)
         if p['parser'].status == '':
             p['status_lb'].configure(bg="white")
-        elif p['parser'].status == ParseCommon.start_search_msg:
+        elif p['parser'].status == start_search_msg:
             p['status_lb'].configure(bg="#F7FFBB")
-        elif p['parser'].status == ParseCommon.cancel_search_msg:
+        elif p['parser'].status == cancel_search_msg:
             p['status_lb'].configure(bg="#FFAAAA")
             result = True
-        elif p['parser'].status == ParseCommon.finish_search_msg:
+        elif p['parser'].status == finish_search_msg:
             p['status_lb'].configure(bg="#AAFFAA")
             result = True
-        if p['parser'].status in (ParseCommon.cancel_search_msg, ParseCommon.finish_search_msg):
+        if p['parser'].status in (cancel_search_msg, finish_search_msg):
             finished = True
             for item in parsers:
                 if item['parser'].running:
@@ -333,7 +350,7 @@ def center(toplevel):
     y = h/2 - size[1]/2
     toplevel.geometry("%dx%d+%d+%d" % (size + (x, y)))
 
-ParseCommon.Parser.init_shelves()
+Parser.init_shelves()
 try:
     master = Tk()
     master.title("Поиск телефонов")
@@ -375,7 +392,7 @@ try:
     parsers.append({'parser': parser})
     master.bind('<<'+parser.base_url+'>>', update_doski_coil)
 
-    ParseCommon.Parser.root = master
+    Parser.root = master
 
     mainwindow = MainWindow()
 
@@ -386,4 +403,4 @@ finally:
     if mainwindow.timer is not None:
         mainwindow.timer.cancel()
 
-    ParseCommon.Parser.close_shelves()
+    Parser.close_shelves()

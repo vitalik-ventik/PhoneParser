@@ -4,6 +4,7 @@ import re
 from ParseCommon import curr_date
 from ParseCommon import Parser
 from ParseCommon import start_search_msg, finish_search_msg, cancel_search_msg
+import socket
 
 import datetime
 
@@ -45,10 +46,10 @@ class ParserSnukRu(Parser):
                 return True
         return True
 
-
     def load_snukru_phones(self):
         self.limit_date = Parser.get_current_date(self.base_url)
         print('Searching phones on ', self.base_url)
+        print('Limit date - ', self.limit_date)
 
         curr_page = Parser.get_current_url(self.base_url)
         if curr_page != '':
@@ -63,18 +64,15 @@ class ParserSnukRu(Parser):
                 break
             print('Searching on page #', curr_page)
             Parser.save_current_url(self.base_url, curr_page, self.limit_date)
-            params = bytes(urllib.parse.urlencode({curr_page: curr_page}).encode())
             try:
+                params = bytes(urllib.parse.urlencode({curr_page: curr_page}).encode())
                 url = urllib.request.Request(self.base_url, params)
-            except urllib.request.URLError as err:
-                print('URL Error: ', err)
+                html_src = urllib.request.urlopen(url).read()
+            except (urllib.request.URLError, urllib.request.HTTPError, socket.timeout) as err:
+                self.process_exception(err)
                 self.inc_error_count()
                 continue
-            except urllib.request.HTTPError as err:
-                print('HTTP Error: ', err)
-                self.inc_error_count()
-                continue
-            html_src = urllib.request.urlopen(url).read()
+
             dammit = UnicodeDammit(html_src, ["windows-1251"])
             html_src = dammit.unicode_markup
             soup = BeautifulSoup(html_src, 'html.parser')

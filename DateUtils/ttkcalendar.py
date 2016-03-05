@@ -37,7 +37,7 @@ class Calendar(ttk.Frame):
         month = kw.pop('month', self.datetime.now().month)
         locale = kw.pop('locale', None)
         sel_bg = kw.pop('selectbackground', '#ecffc4')
-        sel_fg = kw.pop('selectforeground', '#05640e')
+        sel_fg = kw.pop('selectforeground', '#FF0000')
 
         self._date = self.datetime(year, month, 1)
         self._selection = None # no date selected

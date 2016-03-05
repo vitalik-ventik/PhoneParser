@@ -4,6 +4,7 @@ import re
 from ParseCommon import curr_date
 from ParseCommon import Parser
 from ParseCommon import start_search_msg, finish_search_msg, cancel_search_msg
+import socket
 
 import demjson
 import datetime
@@ -30,7 +31,7 @@ class ParserIsraVid(Parser):
         try:
             url = urllib.request.Request(self.base_url + '/moduls/doska/include/get_type_data_elm_doska.php', params)
         except urllib.request.HTTPError as err:
-            print('HTTP Error: ', err)
+            self.process_exception(err)
             return ''
         html_src = urllib.request.urlopen(url).read()
         js = str(html_src)
@@ -42,14 +43,17 @@ class ParserIsraVid(Parser):
             return ''
 
     def parse_adv_url(self, adv_url):
-        try:
-            html_src = urllib.request.urlopen(adv_url).read()
-        except urllib.request.URLError as err:
-            print('URL Error: ', err)
-            return False
-        except urllib.request.HTTPError as err:
-            print('HTTP Error: ', err)
-            return False
+        main_page_open = False
+        while not main_page_open:
+            if self.is_canceled:
+                return
+            try:
+                html_src = urllib.request.urlopen(adv_url).read()
+                main_page_open = True
+            except (urllib.request.URLError, urllib.request.HTTPError, socket.timeout) as err:
+                self.process_exception(err)
+                self.inc_error_count()
+
         curr_name = ''
         dammit = UnicodeDammit(html_src, ["windows-1251"])
         html_src = dammit.unicode_markup
@@ -92,6 +96,7 @@ class ParserIsraVid(Parser):
     def parse_url(self, url):
         Parser.save_current_url(self.base_url, url, self.limit_date)
         print('Searching phones on', url)
+        print('Limit date - ', self.limit_date)
         html_src = urllib.request.urlopen(url).read()
         soup = BeautifulSoup(html_src, 'html.parser')
         if self.parse_soup_reg(soup):
@@ -111,12 +116,8 @@ class ParserIsraVid(Parser):
                 break
             try:
                 url = self.parse_url(url)
-            except urllib.request.URLError as err:
-                print('URL Error: ', err)
-                self.inc_error_count()
-                continue
-            except urllib.request.HTTPError as err:
-                print('HTTP Error: ', err)
+            except (urllib.request.URLError, urllib.request.HTTPError, socket.timeout) as err:
+                self.process_exception(err)
                 self.inc_error_count()
                 continue
             self.inc_page_count()
