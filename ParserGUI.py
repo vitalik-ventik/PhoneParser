@@ -22,6 +22,16 @@ import ParseDoskaCoil
 import ParseDoskiCoil
 
 
+class ErrorLogger(object):
+    def __init__(self, filename):
+        self.terminal = sys.stderr
+        self.log = open(filename, "a+")
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+
 class MainWindow(object):
 
     def __init__(self):
@@ -32,7 +42,7 @@ class MainWindow(object):
         self.source_filename = None
         topframe = Frame(master)
         topframe.pack(side=TOP, fill=None)
-        Label(topframe, text="Поиск телефонов до даты ").pack(side=LEFT, padx=2, pady=2)
+        Label(topframe, text="Поиск телефонов начиная с").pack(side=LEFT, padx=2, pady=2)
         self.date_entry = DateEntry.DateEntry(topframe, default_date=datetime.datetime.today())
         self.date_entry.pack(side=LEFT, padx=2, pady=2)
         self.controls.append(self.date_entry.entry_1)
@@ -44,10 +54,11 @@ class MainWindow(object):
 
         excelframe = Frame(master)
         excelframe.pack(side=TOP, fill=X, expand=1)
-        Label(excelframe, text="Excel-файл с телефонами").pack(side=LEFT, padx=2, pady=2)
+        Label(excelframe, text="Excel-файл с существующими телефонами").pack(side=LEFT, padx=2, pady=2)
         self.excel_sv = StringVar()
         self.excel_entry = Entry(excelframe, textvariable=self.excel_sv)
         self.excel_entry.pack(side=LEFT, padx=2, pady=2, expand=1, fill=X)
+        self.excel_entry.bind("<Key>", lambda e: "break")
         self.controls.append(self.excel_entry)
         btn_excel = ttk.Button(excelframe, text="..", command=self.btn_excel_command, width=2)
         btn_excel.pack(side=LEFT, padx=2, pady=2)
@@ -81,18 +92,21 @@ class MainWindow(object):
             lb = Label(main_frame, textvariable=sv, bd=1, relief=SOLID, bg="white")
             lb.grid(row=i+1, column=2, padx=2, pady=2, sticky=N+S+E+W)
             parsers[i]['pages'] = sv
+            parsers[i]['pages_lb'] = lb
 
             sv = StringVar()
             sv.set('0')
             lb = Label(main_frame, textvariable=sv, bd=1, relief=SOLID, bg="white")
             lb.grid(row=i+1, column=3, padx=2, pady=2, sticky=N+S+E+W)
             parsers[i]['phones'] = sv
+            parsers[i]['phones_lb'] = lb
 
             sv = StringVar()
             sv.set('0')
             lb = Label(main_frame, textvariable=sv, bd=1, relief=SOLID, bg="white")
             lb.grid(row=i+1, column=4, padx=2, pady=2, sticky=N+S+E+W)
             parsers[i]['errors'] = sv
+            parsers[i]['errors_lb'] = lb
 
             sv = StringVar()
             sv.set('')
@@ -114,8 +128,9 @@ class MainWindow(object):
         bottomframe.pack(side=BOTTOM)
         self.btn_start = ttk.Button(bottomframe, text="Начать поиск", command=self.btn_start_command)
         self.btn_start.pack(side=LEFT, padx=2, pady=6)
-        self.btn_save = ttk.Button(bottomframe, text="Сохранить результат", command=self.btn_save_command, state=DISABLED)
+        self.btn_save = ttk.Button(bottomframe, text="Сохранить результат", command=self.btn_save_command)
         self.btn_save.pack(side=LEFT, padx=2, pady=6)
+        self.controls.append(self.btn_save)
 
     def btn_save_command(self):
         save_filename = asksaveasfilename(filetypes=(("Excel file", "*.xls"), ))
@@ -263,14 +278,23 @@ def update_parser(i):
         p['page_count'] = p['parser'].page_count
         p['pages'].set(str(p['page_count']))
         mainwindow.lb_pages.configure(text=str(sum([p['page_count'] for p in parsers if 'page_count' in p.keys()])))
+        p['pages_lb'].configure(bg='#AAFFAA')
+    else:
+        p['pages_lb'].configure(bg='#FFFFFF')
     if str(p['parser'].phone_count) != p['phones'].get():
         p['phone_count'] = p['parser'].phone_count
         p['phones'].set(str(p['phone_count']))
         mainwindow.lb_phones.configure(text=str(sum([p['phone_count'] for p in parsers if 'phone_count' in p.keys()])))
+        p['phones_lb'].configure(bg='#AAFFAA')
+    else:
+        p['phones_lb'].configure(bg='#FFFFFF')
     if str(p['parser'].error_count) != p['errors'].get():
         p['error_count'] = p['parser'].error_count
         p['errors'].set(str(p['error_count']))
         mainwindow.lb_errors.configure(text=str(sum([p['error_count'] for p in parsers if 'error_count' in p.keys()])))
+        p['errors_lb'].configure(bg='#FFAAAA')
+    else:
+        p['errors_lb'].configure(bg='#FFFFFF')
     if p['parser'].status != p['status'].get():
         p['status'].set(p['parser'].status)
         if p['parser'].status == '':
@@ -291,7 +315,6 @@ def update_parser(i):
                     break
             if finished:
                 mainwindow.btn_start.configure(text='Начать поиск', state=NORMAL)
-                mainwindow.btn_save.configure(state=NORMAL)
                 mainwindow.running = False
                 for item in mainwindow.controls:
                     item.configure(state=NORMAL)
@@ -352,7 +375,9 @@ def center(toplevel):
     y = h/2 - size[1]/2
     toplevel.geometry("%dx%d+%d+%d" % (size + (x, y)))
 
+sys.stderr = ErrorLogger(Parser.work_dir + '/error.log')
 Parser.init_shelves()
+mainwindow = None
 try:
     master = Tk()
     master.title("Поиск телефонов")
@@ -402,7 +427,8 @@ try:
     center(master)
     mainloop()
 finally:
-    if mainwindow.timer is not None:
-        mainwindow.timer.cancel()
+    if mainwindow is not None:
+        if mainwindow.timer is not None:
+            mainwindow.timer.cancel()
 
     Parser.close_shelves()
