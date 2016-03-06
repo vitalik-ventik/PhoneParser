@@ -2,6 +2,7 @@ import datetime
 import threading
 import shelve
 import os
+import sys
 import _pickle
 import time
 import socket
@@ -27,7 +28,11 @@ class Parser(threading.Thread):
     phones = None
     root = None
     source_excel = dict()
-    data_dir = os.path.dirname(os.path.abspath(__file__)) +'\data'
+    if getattr(sys, 'frozen', False):
+        work_dir = os.path.dirname(sys.executable)
+    else:
+        work_dir = os.path.dirname(os.path.abspath(__file__))
+    data_dir = work_dir + '\data'
 
     def __init__(self, base_url):
         threading.Thread.__init__(self)
