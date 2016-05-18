@@ -7,6 +7,7 @@ import ParseIsraCom
 import ParseIsraVid
 import ParseDoskaCoil
 import ParseDoskiCoil
+import ParseDoskaIsraelInfoCo
 import datetime
 
 if __name__ == '__main__':
@@ -23,6 +24,7 @@ if __name__ == '__main__':
         threads.append(ParseIsraVid.ParserIsraVid())
         threads.append(ParseDoskaCoil.ParserDoskaCoil())
         threads.append(ParseDoskiCoil.ParserDoskiCoil())
+        threads.append(ParseDoskaIsraelInfoCo.ParserDoskaIsraelInfoCo())
 
         for item in threads:
             item.start()

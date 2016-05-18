@@ -10,7 +10,7 @@ import socket
 start_search_msg = 'Поиск..'
 cancel_search_msg = 'Поиск отменен'
 finish_search_msg = 'Поиск окончен'
-socket.setdefaulttimeout(5)
+socket.setdefaulttimeout(10)
 
 
 def curr_date():
@@ -132,7 +132,7 @@ class Parser(threading.Thread):
         :param phone: number of phone
         :return: True or False
         """
-        return phone[:3] in ['050', '052', '054', '058', '055']
+        return phone[:3] in ['050', '052', '053', '054', '058', '055']
 
     @staticmethod
     def save_phone_name(phone, name):

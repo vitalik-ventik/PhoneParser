@@ -1,5 +1,5 @@
 import urllib
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, UnicodeDammit
 import re
 from ParseCommon import curr_date
 from ParseCommon import Parser
@@ -11,11 +11,11 @@ import html
 import datetime
 
 
-class ParserZahav(Parser):
+class ParserRussianDoska(Parser):
     index = None
 
     def __init__(self):
-        super().__init__('http://doska.zahav.ru/')
+        super().__init__('http://www.russiandoska.com/cat/0-692/')
         self.num_threads = 0
         self.thread_started = False
 
@@ -31,26 +31,22 @@ class ParserZahav(Parser):
         else:
             self.set_status(finish_search_msg)
 
-    def parse_detail_url(self, url):
+    def parse_details(self, url):
         detail_url_open = False
         while not detail_url_open:
             if self.is_canceled:
                 return True
             try:
                 html_src = urllib.request.urlopen(url).read()
+                dammit = UnicodeDammit(html_src, ["windows-1251"])
+                html_src = dammit.unicode_markup
                 detail_url_open = True
-                soup = BeautifulSoup(html_src, 'html.parser')
-                name = ''
-                for item in soup.find_all('div', class_="f_g_t_container"):
-                    for re_item in re.findall('Имя:</div><div class="f_g_t_text">(.+?)</div>', str(item), re.DOTALL):
-                        if re_item.startswith('<a'):
-                            re_item = re.findall('target="_blank">(.+?)</a>', re_item)[0]
-                        name = re_item
-                    for re_item in re.findall('Телефон:</div><div class="f_g_t_text">(.+?)</div>', str(item), re.DOTALL):
-                        for phone_item in re.findall('<span class="f_g_t_text__phone">(.+?)</span>', re_item):
-                            for phone in Parser.get_phone(phone_item,):
-                                if Parser.save_phone_name(phone, name):
-                                    self.inc_phone_count()
+                curr_name = ''
+
+                for phone_item in re.findall('([0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9])', str(html_src).replace('-', '').replace(' ', ''), re.DOTALL):
+                    for phone in Parser.get_phone(phone_item):
+                        if Parser.save_phone_name(phone, curr_name):
+                            self.inc_phone_count()
                     if self.is_canceled:
                         return True
             except (urllib.request.URLError, urllib.request.HTTPError, socket.timeout) as err:
@@ -83,11 +79,17 @@ class ParserZahav(Parser):
                 self.process_exception(err)
                 self.inc_error_count()
                 continue
+
             soup = BeautifulSoup(html_src, 'html.parser')
             old_date_reached = False
 
-            for item in soup.find_all('tr', class_='in'):
-                for date_item in re.findall('<td class="date".+?>(..\...\.....)<.+?</td>', str(item), re.DOTALL):
+            for item in soup.find_all('tr', {"class": 'table_ad_normal'}):
+                a_item = item
+                item = str(item).lower()
+                for i, month in enumerate(['янв','фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']):
+                    item = item.replace(' '+month+' ', '.' + str(i + 1).zfill(2) + '.')
+
+                for date_item in re.findall('<td class="cell_embosed2 hide_for_mobile">([0-9][0-9]\.[0-9][0-9]\.[0-9][0-9][0-9][0-9])</td>', str(item), re.DOTALL):
                     if date_item.strip() == '':
                         continue
                     message_date = datetime.datetime.strptime(date_item.strip(), "%d.%m.%Y")
@@ -98,10 +100,10 @@ class ParserZahav(Parser):
                     break
                 elif self.is_canceled:
                     break
-                for id_item in re.findall('lDet\((.+?)\);', str(item), re.DOTALL):
-                    id_item = [c.strip().replace('\'', '') for c in id_item.split(',')]
-                    detail_url = self.base_url + 'ajax.php?action='+id_item[1]+'&branch='+id_item[2]+'&id='+id_item[3]
-                    self.parse_detail_url(detail_url)
+
+                for a in a_item.find_all('a'):
+                    if 'html' in a['href']:
+                        self.parse_details(self.base_url[:len(self.base_url) - 11] + a['href'])
 
             self.inc_page_count()
             if old_date_reached:
@@ -110,9 +112,11 @@ class ParserZahav(Parser):
                 url = None
             else:
                 url = None
-                for next_item in soup.find_all('span', class_='next'):
-                    for next_a in re.findall('<a href="(.+?)">', str(next_item), re.DOTALL):
-                        url = start_url + html.unescape(str(next_a))
+                for div in soup.find_all('div', {'class': 'page_index'}):
+                    for a in div.find_all('a'):
+                        if a.text == '>':
+                            url = a['href']
+                            break
 
         Parser.save_current_url(start_url, '', self.limit_date)
         Parser.lock.acquire()
@@ -136,9 +140,14 @@ class ParserZahav(Parser):
 
         if main_page_open:
             cat_soup = BeautifulSoup(html_src, 'html.parser')
-            for group in cat_soup.find_all("a", class_="main__category__item__title__link"):
-                cat_url = self.base_url[:len(self.base_url) - 1] + group['href']
-                start_new_thread(self.parse_category, (cat_url,))
+            cat_list = list()
+            for group in cat_soup.find_all("div", class_="index_category_title"):
+                for a in group.find_all('a'):
+                    if a['href'] in cat_list:
+                        continue
+                    cat_list.append(a['href'])
+                    cat_url = self.base_url[:len(self.base_url) - 11] + a['href']
+                    start_new_thread(self.parse_category, (cat_url,))
 
             while not self.thread_started:
                 pass
@@ -153,7 +162,7 @@ if __name__ == '__main__':
     try:
         Parser.init_shelves()
         Parser.limit_date_for_search = curr_date()
-        p = ParserZahav()
+        p = ParserRussianDoska()
         p.start()
         p.join()
     finally:
