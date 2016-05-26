@@ -346,112 +346,17 @@ def update_parser(i):
     return result
 
 
-def update_orbita(event):
-    index = ParserOrbita.index
+def event_update_parser(p):
+    index = p.index
     if update_parser(index):
-        parsers[index]['parser'] = ParserOrbita()
+        parsers[index]['parser'] = p()
 
 
-def update_zahav(event):
-    index = ParserZahav.index
-    if update_parser(index):
-        parsers[index]['parser'] = ParserZahav()
-
-
-def update_snukru(event):
-    index = ParserSnukRu.index
-    if update_parser(index):
-        parsers[index]['parser'] = ParserSnukRu()
-
-
-def update_isra_com(event):
-    index = ParserIsraCom.index
-    if update_parser(index):
-        parsers[index]['parser'] = ParserIsraCom()
-
-
-def update_isra_vid(event):
-    index = ParserIsraVid.index
-    if update_parser(index):
-        parsers[index]['parser'] = ParserIsraVid()
-
-
-def update_doska_coil(event):
-    index = ParserDoskaCoil.index
-    if update_parser(index):
-        parsers[index]['parser'] = ParserDoskaCoil()
-
-
-def update_doski_coil(event):
-    index = ParserDoskiCoil.index
-    if update_parser(index):
-        parsers[index]['parser'] = ParserDoskiCoil()
-
-
-def update_doska_israelinfo_co(event):
-    index = ParserDoskaIsraelInfoCo.index
-    if update_parser(index):
-        parsers[index]['parser'] = ParserDoskaIsraelInfoCo()
-
-
-def update_rabota_coil(event):
-    index = ParserRabotaCoIl.index
-    if update_parser(index):
-        parsers[index]['parser'] = ParserRabotaCoIl()
-
-
-def update_board_iinfo(event):
-    index = ParserBoardIinfo.index
-    if update_parser(index):
-        parsers[index]['parser'] = ParserBoardIinfo()
-
-
-def update_lemhira(event):
-    index = ParserLemhira.index
-    if update_parser(index):
-        parsers[index]['parser'] = ParserLemhira()
-
-
-def update_sova(event):
-    index = ParserSova.index
-    if update_parser(index):
-        parsers[index]['parser'] = ParserSova()
-
-
-def update_il_board(event):
-    index = ParserIlBoard.index
-    if update_parser(index):
-        parsers[index]['parser'] = ParserIlBoard()
-
-
-def update_russian_doska(event):
-    index = ParserRussianDoska.index
-    if update_parser(index):
-        parsers[index]['parser'] = ParserRussianDoska()
-
-
-def update_soyuz(event):
-    index = ParserSoyuz.index
-    if update_parser(index):
-        parsers[index]['parser'] = ParserSoyuz()
-
-
-def update_rabota_israel(event):
-    index = ParserRabotaIsrael.index
-    if update_parser(index):
-        parsers[index]['parser'] = ParserRabotaIsrael()
-
-
-def update_board_isra(event):
-    index = ParserBoardIsra.index
-    if update_parser(index):
-        parsers[index]['parser'] = ParserBoardIsra()
-
-
-def update_buy_sell(event):
-    index = ParserBuySell.index
-    if update_parser(index):
-        parsers[index]['parser'] = ParserBuySell()
+def add_parser(new_parser_class):
+    new_parser = new_parser_class()
+    new_parser_class.index = len(parsers)
+    parsers.append({'parser': new_parser})
+    master.bind('<<'+new_parser.base_url+'>>', lambda x: event_update_parser(new_parser_class))
 
 
 def center(toplevel):
@@ -472,95 +377,24 @@ try:
 
     parsers = list()
 
-    ParserOrbita.index = len(parsers)
-    parser = ParserOrbita()
-    parsers.append({'parser': parser})
-    master.bind('<<'+parser.base_url+'>>', update_orbita)
-
-    ParserZahav.index = len(parsers)
-    parser = ParserZahav()
-    parsers.append({'parser': parser})
-    master.bind('<<'+parser.base_url+'>>', update_zahav)
-
-    ParserSnukRu.index = len(parsers)
-    parser = ParserSnukRu()
-    parsers.append({'parser': parser})
-    master.bind('<<'+parser.base_url+'>>', update_snukru)
-
-    ParserIsraCom.index = len(parsers)
-    parser = ParserIsraCom()
-    parsers.append({'parser': parser})
-    master.bind('<<'+parser.base_url+'>>', update_isra_com)
-
-    ParserIsraVid.index = len(parsers)
-    parser = ParserIsraVid()
-    parsers.append({'parser': parser})
-    master.bind('<<'+parser.base_url+'>>', update_isra_vid)
-
-    ParserDoskaCoil.index = len(parsers)
-    parser = ParserDoskaCoil()
-    parsers.append({'parser': parser})
-    master.bind('<<'+parser.base_url+'>>', update_doska_coil)
-
-    ParserDoskiCoil.index = len(parsers)
-    parser = ParserDoskiCoil()
-    parsers.append({'parser': parser})
-    master.bind('<<'+parser.base_url+'>>', update_doski_coil)
-
-    ParserDoskaIsraelInfoCo.index = len(parsers)
-    parser = ParserDoskaIsraelInfoCo()
-    parsers.append({'parser': parser})
-    master.bind('<<'+parser.base_url+'>>', update_doska_israelinfo_co)
-
-    ParserRabotaCoIl.index = len(parsers)
-    parser = ParserRabotaCoIl()
-    parsers.append({'parser': parser})
-    master.bind('<<'+parser.base_url+'>>', update_rabota_coil)
-
-    ParserBoardIinfo.index = len(parsers)
-    parser = ParserBoardIinfo()
-    parsers.append({'parser': parser})
-    master.bind('<<'+parser.base_url+'>>', update_board_iinfo)
-
-    ParserLemhira.index = len(parsers)
-    parser = ParserLemhira()
-    parsers.append({'parser': parser})
-    master.bind('<<'+parser.base_url+'>>', update_lemhira)
-
-    ParserSova.index = len(parsers)
-    parser = ParserSova()
-    parsers.append({'parser': parser})
-    master.bind('<<'+parser.base_url+'>>', update_sova)
-
-    ParserIlBoard.index = len(parsers)
-    parser = ParserIlBoard()
-    parsers.append({'parser': parser})
-    master.bind('<<'+parser.base_url+'>>', update_il_board)
-
-    ParserRussianDoska.index = len(parsers)
-    parser = ParserRussianDoska()
-    parsers.append({'parser': parser})
-    master.bind('<<'+parser.base_url+'>>', update_russian_doska)
-
-    ParserSoyuz.index = len(parsers)
-    parser = ParserSoyuz()
-    parsers.append({'parser': parser})
-    master.bind('<<'+parser.base_url+'>>', update_soyuz)
-
-    ParserRabotaIsrael.index = len(parsers)
-    parser = ParserRabotaIsrael()
-    parsers.append({'parser': parser})
-    master.bind('<<'+parser.base_url+'>>', update_rabota_israel)
-
-    ParserBoardIsra.index = len(parsers)
-    parser = ParserBoardIsra()
-    parsers.append({'parser': parser})
-    master.bind('<<'+parser.base_url+'>>', update_board_isra)
-
-    ParserBuySell.index = len(parsers)
-    parser = ParserBuySell()
-    parsers.append({'parser': parser})
-    master.bind('<<'+parser.base_url+'>>', update_buy_sell)
+    add_parser(ParserOrbita)
+    add_parser(ParserZahav)
+    add_parser(ParserSnukRu)
+    add_parser(ParserIsraCom)
+    add_parser(ParserIsraVid)
+    add_parser(ParserDoskaCoil)
+    add_parser(ParserDoskiCoil)
+    add_parser(ParserDoskaIsraelInfoCo)
+    add_parser(ParserRabotaCoIl)
+    add_parser(ParserBoardIinfo)
+    add_parser(ParserLemhira)
+    add_parser(ParserSova)
+    add_parser(ParserIlBoard)
+    add_parser(ParserRussianDoska)
+    add_parser(ParserSoyuz)
+    add_parser(ParserRabotaIsrael)
+    add_parser(ParserBoardIsra)
+    add_parser(ParserBuySell)
 
     Parser.root = master
 
